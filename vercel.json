@@ -1,15 +1,9 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "incident-dashboard/backend/server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/incident-dashboard/backend/server.js"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ]
 }
