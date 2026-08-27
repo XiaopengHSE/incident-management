@@ -1,0 +1,21 @@
+# Dependencies
+**/node_modules/
+
+# Logs
+*.log
+**/logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# WorkBuddy
+.workbuddy-ai/memory/

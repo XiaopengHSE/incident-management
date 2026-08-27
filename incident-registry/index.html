@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>异常事件登记台</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --text: #1f2937;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --warning: #d97706;
+    --warning-bg: #fffbeb;
+    --success: #059669;
+    --success-bg: #ecfdf5;
+    --info: #0891b2;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 1.5rem; font-weight: 700; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: var(--radius); border: 1px solid transparent;
+    font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all .15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-secondary { background: #fff; border-color: var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #f9fafb; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+  .filters {
+    background: var(--card); border-radius: var(--radius); padding: 16px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .02em; }
+  .field input, .field select {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem;
+    background: #fff; color: var(--text);
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+  }
+  .count { font-size: 0.875rem; color: var(--text-secondary); }
+
+  .table-wrap {
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: #f9fafb; font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: .03em; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9fafb; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+  }
+  .severity-critical { background: var(--danger-bg); color: #991b1b; }
+  .severity-high     { background: #fff1f2; color: #9f1239; }
+  .severity-medium   { background: var(--warning-bg); color: #92400e; }
+  .severity-low      { background: #eff6ff; color: #1e40af; }
+
+  .status-open   { background: #eff6ff; color: #1e40af; }
+  .status-closed { background: var(--success-bg); color: #065f46; }
+
+  .overdue { animation: pulse-red 2s infinite; }
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: inset 0 0 0 0 rgba(220,38,38,0); }
+    50% { box-shadow: inset 4px 0 0 0 var(--danger); }
+  }
+
+  .actions { display: flex; gap: 6px; }
+  .actions .btn { padding: 4px 10px; font-size: 0.75rem; }
+
+  .empty {
+    text-align: center; padding: 64px 24px; color: var(--text-secondary);
+  }
+  .empty svg { width: 64px; height: 64px; margin-bottom: 12px; opacity: .5; }
+  .empty h3 { font-size: 1rem; margin-bottom: 4px; color: var(--text); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--card); border-radius: var(--radius); width: 100%; max-width: 520px;
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,.15);
+    margin: 16px;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 { font-size: 1.125rem; }
+  .modal-close { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-secondary); }
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 20px; border-top: 1px solid var(--border); background: #f9fafb;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid .field { grid-column: span 2; }
+  .form-grid .field.half { grid-column: span 1; }
+  textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+
+  /* History */
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+  .history-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 10px 12px; border-radius: 6px; background: #f9fafb;
+  }
+  .history-time { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; min-width: 140px; }
+  .history-action { font-weight: 600; font-size: 0.875rem; }
+  .history-note { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+
+  /* Toast */
+  .toast-container {
+    position: fixed; top: 16px; right: 16px; z-index: 60;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 10px 16px; border-radius: var(--radius); font-size: 0.875rem;
+    color: #fff; box-shadow: var(--shadow); animation: slideIn .25s ease;
+    max-width: 320px; word-break: break-word;
+  }
+  .toast.error { background: var(--danger); }
+  .toast.success { background: var(--success); }
+  .toast.warn { background: var(--warning); color: #3f2206; }
+  @keyframes slideIn {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @media (max-width: 768px) {
+    .form-grid .field.half { grid-column: span 2; }
+    .filters { grid-template-columns: 1fr; }
+    table { min-width: 640px; }
+    .table-wrap { overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>异常事件登记台</h1>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" id="btn-export">导出 CSV</button>
+      <button class="btn btn-primary" id="btn-add">+ 新增事件</button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="field">
+      <label>严重度</label>
+      <select id="filter-severity"><option value="">全部</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="critical">紧急</option></select>
+    </div>
+    <div class="field">
+      <label>状态</label>
+      <select id="filter-status"><option value="">全部</option><option value="open">进行中</option><option value="closed">已关闭</option></select>
+    </div>
+    <div class="field">
+      <label>负责人</label>
+      <input id="filter-assignee" placeholder="输入负责人姓名" />
+    </div>
+    <div class="field">
+      <label>关键词</label>
+      <input id="filter-keyword" placeholder="搜索标题或备注" />
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="count" id="result-count">共 0 条事件</div>
+  </div>
+
+  <div class="table-wrap" id="table-container">
+    <div class="empty" id="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+      <h3>暂无事件</h3>
+      <p>点击右上角「新增事件」开始登记</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add/Edit -->
+<div class="modal-overlay" id="modal-form">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">新增事件</h2>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field">
+          <label>标题 *</label>
+          <input id="inp-title" placeholder="简短描述问题" />
+        </div>
+        <div class="field half">
+          <label>严重度 *</label>
+          <select id="inp-severity"><option value="low">低</option><option value="medium" selected>中</option><option value="high">高</option><option value="critical">紧急</option></select>
+        </div>
+        <div class="field half">
+          <label>负责人 *</label>
+          <input id="inp-assignee" placeholder="处理人姓名" />
+        </div>
+        <div class="field">
+          <label>备注</label>
+          <textarea id="inp-note" placeholder="补充说明、复现步骤等"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-cancel">取消</button>
+      <button class="btn btn-primary" id="btn-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: History -->
+<div class="modal-overlay" id="modal-history">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>状态历史</h2>
+      <button class="modal-close" id="history-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="history-list" id="history-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="history-ok">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script type="module">
+import {
+  createIncident, getAllIncidents, getIncidentById,
+  updateIncident, closeIncident, filterIncidents,
+  isOverdue, exportToCSV, initStorage, STORAGE_KEY
+} from './app.js';
+
+initStorage();
+
+let editingId = null;
+let currentFilter = {};
+const OVERDUE_HOURS = 24;
+
+const $ = (sel) => document.querySelector(sel);
+const formatDate = (ts) => new Date(ts).toLocaleString('zh-CN');
+
+function showToast(msg, type = 'error') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function render() {
+  const list = filterIncidents(currentFilter);
+  const container = $('#table-container');
+  $('#result-count').textContent = `共 ${list.length} 条事件`;
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+        <h3>暂无事件</h3>
+        <p>未找到符合条件的事件，请调整筛选条件或新增事件</p>
+      </div>`;
+    return;
+  }
+
+  const severityLabel = { low:'低', medium:'中', high:'高', critical:'紧急' };
+  const statusLabel = { open:'进行中', closed:'已关闭' };
+
+  let html = `<table><thead><tr>
+    <th>标题</th><th>严重度</th><th>负责人</th><th>状态</th><th>创建时间</th><th>备注</th><th>操作</th>
+  </tr></thead><tbody>`;
+
+  for (const inc of list) {
+    const overdue = isOverdue(inc, OVERDUE_HOURS);
+    const rowClass = overdue ? 'overdue' : '';
+    html += `<tr class="${rowClass}">
+      <td><strong>${esc(inc.title)}</strong>${overdue ? ' <span style="color:var(--danger);font-size:.75rem;font-weight:600;">(已超时)</span>' : ''}</td>
+      <td><span class="badge severity-${inc.severity}">${severityLabel[inc.severity]}</span></td>
+      <td>${esc(inc.assignee)}</td>
+      <td><span class="badge status-${inc.status}">${statusLabel[inc.status]}</span></td>
+      <td>${formatDate(inc.createdAt)}</td>
+      <td>${esc(inc.note).slice(0,40)}${inc.note.length>40?'...':''}</td>
+      <td>
+        <div class="actions">
+          ${inc.status !== 'closed' ? `<button class="btn btn-secondary btn-sm" data-edit="${inc.id}">编辑</button>` : ''}
+          <button class="btn btn-secondary btn-sm" data-history="${inc.id}">历史</button>
+          ${inc.status !== 'closed' ? `<button class="btn btn-danger btn-sm" data-close="${inc.id}">关闭</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  container.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEdit(b.dataset.edit));
+  container.querySelectorAll('[data-history]').forEach(b => b.onclick = () => openHistory(b.dataset.history));
+  container.querySelectorAll('[data-close]').forEach(b => b.onclick = () => doClose(b.dataset.close));
+}
+
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function openAdd() {
+  editingId = null;
+  $('#modal-title').textContent = '新增事件';
+  $('#inp-title').value = '';
+  $('#inp-severity').value = 'medium';
+  $('#inp-assignee').value = '';
+  $('#inp-note').value = '';
+  $('#modal-form').classList.add('active');
+}
+
+function openEdit(id) {
+  const inc = getIncidentById(id);
+  if (!inc) return;
+  editingId = id;
+  $('#modal-title').textContent = '编辑事件';
+  $('#inp-title').value = inc.title;
+  $('#inp-severity').value = inc.severity;
+  $('#inp-assignee').value = inc.assignee;
+  $('#inp-note').value = inc.note;
+  $('#modal-form').classList.add('active');
+}
+
+function closeModal() {
+  $('#modal-form').classList.remove('active');
+  $('#modal-history').classList.remove('active');
+  editingId = null;
+}
+
+function saveForm() {
+  const title = $('#inp-title').value.trim();
+  const severity = $('#inp-severity').value;
+  const assignee = $('#inp-assignee').value.trim();
+  const note = $('#inp-note').value.trim();
+  try {
+    if (editingId) {
+      updateIncident(editingId, { title, severity, assignee, note });
+      showToast('事件已更新', 'success');
+    } else {
+      createIncident({ title, severity, assignee, note });
+      showToast('事件已创建', 'success');
+    }
+    closeModal();
+    render();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function doClose(id) {
+  if (!confirm('确定要关闭该事件吗？')) return;
+  try {
+    closeIncident(id, '用户手动关闭');
+    showToast('事件已关闭', 'success');
+    render();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function openHistory(id) {
+  const inc = getIncidentById(id);
+  if (!inc) return;
+  const labels = { created:'创建', updated:'更新', closed:'关闭' };
+  $('#history-list').innerHTML = inc.history.map(h => `
+    <div class="history-item">
+      <div class="history-time">${formatDate(h.timestamp)}</div>
+      <div>
+        <div class="history-action">${labels[h.action] || h.action}</div>
+        <div class="history-note">${esc(h.note)}</div>
+      </div>
+    </div>
+  `).join('');
+  $('#modal-history').classList.add('active');
+}
+
+function doExport() {
+  const list = filterIncidents(currentFilter);
+  if (list.length === 0) {
+    showToast('没有可导出的数据', 'warn');
+    return;
+  }
+  const csv = exportToCSV(list);
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `事件导出_${new Date().toLocaleDateString('zh-CN')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('导出成功', 'success');
+}
+
+function applyFilters() {
+  currentFilter = {
+    severity: $('#filter-severity').value || undefined,
+    status: $('#filter-status').value || undefined,
+    assignee: $('#filter-assignee').value.trim() || undefined,
+    keyword: $('#filter-keyword').value.trim() || undefined,
+  };
+  render();
+}
+
+$('#btn-add').onclick = openAdd;
+$('#btn-export').onclick = doExport;
+$('#btn-save').onclick = saveForm;
+$('#btn-cancel').onclick = closeModal;
+$('#modal-close').onclick = closeModal;
+$('#history-close').onclick = closeModal;
+$('#history-ok').onclick = closeModal;
+
+$('#filter-severity').onchange = applyFilters;
+$('#filter-status').onchange = applyFilters;
+$('#filter-assignee').oninput = debounce(applyFilters, 250);
+$('#filter-keyword').oninput = debounce(applyFilters, 250);
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+render();
+</script>
+</body>
+</html>

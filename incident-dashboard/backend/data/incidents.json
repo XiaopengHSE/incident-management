@@ -1,0 +1,168 @@
+{
+  "incidents": [
+    {
+      "id": "inc_mtb8hlpp_lw1kcu",
+      "title": "幂等测试",
+      "severity": "低",
+      "assignee": "X",
+      "status": "待处理",
+      "remark": "",
+      "createdAt": "2026-08-27T08:01:24.013Z",
+      "updatedAt": "2026-08-27T08:01:24.013Z",
+      "closedAt": null,
+      "history": [
+        {
+          "status": "待处理",
+          "time": "2026-08-27T08:01:24.013Z",
+          "remark": "事件创建"
+        }
+      ],
+      "idempotencyKey": "idem_test_1787817684011",
+      "version": 1
+    },
+    {
+      "id": "inc_mtb8hlnv_5ka482",
+      "title": "重复关闭测试",
+      "severity": "低",
+      "assignee": "C",
+      "status": "已关闭",
+      "remark": "",
+      "createdAt": "2026-08-27T08:01:23.947Z",
+      "updatedAt": "2026-08-27T08:01:23.973Z",
+      "closedAt": "2026-08-27T08:01:23.973Z",
+      "history": [
+        {
+          "status": "待处理",
+          "time": "2026-08-27T08:01:23.947Z",
+          "remark": "事件创建"
+        },
+        {
+          "status": "已关闭",
+          "time": "2026-08-27T08:01:23.973Z",
+          "remark": "关闭事件: 待处理 → 已关闭"
+        }
+      ],
+      "idempotencyKey": null,
+      "version": 2
+    },
+    {
+      "id": "inc_mtb8hln4_0lxs67",
+      "title": "待关闭",
+      "severity": "低",
+      "assignee": "C",
+      "status": "处理中",
+      "remark": "",
+      "createdAt": "2026-08-27T08:01:23.920Z",
+      "updatedAt": "2026-08-27T08:01:23.920Z",
+      "closedAt": null,
+      "history": [
+        {
+          "status": "处理中",
+          "time": "2026-08-27T08:01:23.920Z",
+          "remark": "事件创建"
+        }
+      ],
+      "idempotencyKey": null,
+      "version": 1
+    },
+    {
+      "id": "inc_mtb8hlll_vu1dd9",
+      "title": "乐观锁测试",
+      "severity": "低",
+      "assignee": "X",
+      "status": "处理中",
+      "remark": "",
+      "createdAt": "2026-08-27T08:01:23.865Z",
+      "updatedAt": "2026-08-27T08:01:23.891Z",
+      "closedAt": null,
+      "history": [
+        {
+          "status": "待处理",
+          "time": "2026-08-27T08:01:23.865Z",
+          "remark": "事件创建"
+        },
+        {
+          "status": "处理中",
+          "time": "2026-08-27T08:01:23.891Z",
+          "remark": "状态变更: 待处理 → 处理中"
+        }
+      ],
+      "idempotencyKey": null,
+      "version": 2
+    },
+    {
+      "id": "inc_mtb8hljd_gcb3sa",
+      "title": "状态机测试",
+      "severity": "低",
+      "assignee": "X",
+      "status": "已关闭",
+      "remark": "",
+      "createdAt": "2026-08-27T08:01:23.785Z",
+      "updatedAt": "2026-08-27T08:01:23.813Z",
+      "closedAt": "2026-08-27T08:01:23.813Z",
+      "history": [
+        {
+          "status": "已解决",
+          "time": "2026-08-27T08:01:23.785Z",
+          "remark": "事件创建"
+        },
+        {
+          "status": "已关闭",
+          "time": "2026-08-27T08:01:23.813Z",
+          "remark": "关闭事件: 已解决 → 已关闭"
+        }
+      ],
+      "idempotencyKey": null,
+      "version": 2
+    },
+    {
+      "id": "inc_mtb8hlgc_lk83p8",
+      "title": "筛选测试-处理中",
+      "severity": "中",
+      "assignee": "X",
+      "status": "处理中",
+      "remark": "",
+      "createdAt": "2026-08-27T08:01:23.676Z",
+      "updatedAt": "2026-08-27T08:01:23.676Z",
+      "closedAt": null,
+      "history": [
+        {
+          "status": "处理中",
+          "time": "2026-08-27T08:01:23.676Z",
+          "remark": "事件创建"
+        }
+      ],
+      "idempotencyKey": null,
+      "version": 1
+    },
+    {
+      "id": "inc_mtb8hlel_o8ec77",
+      "title": "测试事件A-已修改",
+      "severity": "高",
+      "assignee": "修改员",
+      "status": "处理中",
+      "remark": "修改备注",
+      "createdAt": "2026-08-27T08:01:23.613Z",
+      "updatedAt": "2026-08-27T08:01:23.756Z",
+      "closedAt": null,
+      "history": [
+        {
+          "status": "待处理",
+          "time": "2026-08-27T08:01:23.613Z",
+          "remark": "事件创建"
+        },
+        {
+          "status": "处理中",
+          "time": "2026-08-27T08:01:23.756Z",
+          "remark": "状态变更: 待处理 → 处理中（备注: 修改备注）"
+        }
+      ],
+      "idempotencyKey": null,
+      "version": 2
+    }
+  ],
+  "_meta": {
+    "version": 1,
+    "createdAt": "2026-08-27T08:01:23.614Z"
+  }
+}
