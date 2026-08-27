@@ -12,20 +12,33 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'incidents.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
-// 确保目录存在
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+// 检测是否在只读文件系统上运行（如 Vercel）
+function isReadOnlyFs() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(BACKUP_DIR)) {
+      fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    }
+    return false;
+  } catch (e) {
+    return true;
   }
 }
-ensureDir(DATA_DIR);
-ensureDir(BACKUP_DIR);
+
+const IS_READ_ONLY = isReadOnlyFs();
 
 // 原子写入：先写临时文件，再重命名
 function atomicWrite(filePath, data) {
+  if (IS_READ_ONLY) {
+    console.warn('[Repository] 只读文件系统，跳过写入:', filePath);
+    return false;
+  }
   const tmpPath = filePath + '.tmp';
   fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf8');
   fs.renameSync(tmpPath, filePath);
+  return true;
 }
 
 // 加载数据
@@ -48,8 +61,11 @@ function loadData() {
 // 保存数据
 function saveData(data) {
   try {
-    atomicWrite(DATA_FILE, data);
-    return true;
+    const ok = atomicWrite(DATA_FILE, data);
+    if (!ok) {
+      console.warn('[Repository] 数据未持久化（只读环境）');
+    }
+    return ok;
   } catch (e) {
     throw new Error(`数据保存失败: ${e.message}`);
   }
@@ -57,6 +73,7 @@ function saveData(data) {
 
 // 创建备份
 function createBackup() {
+  if (IS_READ_ONLY) return null;
   try {
     if (!fs.existsSync(DATA_FILE)) return null;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

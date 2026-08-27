@@ -12,20 +12,39 @@ const { DomainError } = require('../domain/incident');
 const TRACE_LOG = path.join(__dirname, '..', 'logs', 'trace.log');
 const ERROR_LOG = path.join(__dirname, '..', 'logs', 'error.log');
 
-function ensureLogDir() {
-  const dir = path.dirname(TRACE_LOG);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+// 检测是否在只读文件系统上运行（如 Vercel）
+function isReadOnlyFs() {
+  try {
+    const dir = path.dirname(TRACE_LOG);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return false;
+  } catch (e) {
+    return true;
+  }
 }
-ensureLogDir();
+
+const IS_READ_ONLY = isReadOnlyFs();
 
 function writeTrace(entry) {
-  const line = JSON.stringify({ ...entry, _t: new Date().toISOString() });
-  fs.appendFileSync(TRACE_LOG, line + '\n', 'utf8');
+  if (IS_READ_ONLY) return;
+  try {
+    const line = JSON.stringify({ ...entry, _t: new Date().toISOString() });
+    fs.appendFileSync(TRACE_LOG, line + '\n', 'utf8');
+  } catch (e) {
+    // 写入失败时忽略
+  }
 }
 
 function writeError(entry) {
-  const line = JSON.stringify({ ...entry, _t: new Date().toISOString() });
-  fs.appendFileSync(ERROR_LOG, line + '\n', 'utf8');
+  if (IS_READ_ONLY) return;
+  try {
+    const line = JSON.stringify({ ...entry, _t: new Date().toISOString() });
+    fs.appendFileSync(ERROR_LOG, line + '\n', 'utf8');
+  } catch (e) {
+    // 写入失败时忽略
+  }
 }
 
 // 错误码映射表
