@@ -1,44 +1,44 @@
 {
   "incidents": [
     {
-      "id": "inc_mtb8hlpp_lw1kcu",
+      "id": "inc_mtb8rzlq_o4qtks",
       "title": "幂等测试",
       "severity": "低",
       "assignee": "X",
       "status": "待处理",
       "remark": "",
-      "createdAt": "2026-08-27T08:01:24.013Z",
-      "updatedAt": "2026-08-27T08:01:24.013Z",
+      "createdAt": "2026-08-27T08:09:28.574Z",
+      "updatedAt": "2026-08-27T08:09:28.574Z",
       "closedAt": null,
       "history": [
         {
           "status": "待处理",
-          "time": "2026-08-27T08:01:24.013Z",
+          "time": "2026-08-27T08:09:28.574Z",
           "remark": "事件创建"
         }
       ],
-      "idempotencyKey": "idem_test_1787817684011",
+      "idempotencyKey": "idem_test_1787818168572",
       "version": 1
     },
     {
-      "id": "inc_mtb8hlnv_5ka482",
+      "id": "inc_mtb8rzjw_djqmu7",
       "title": "重复关闭测试",
       "severity": "低",
       "assignee": "C",
       "status": "已关闭",
       "remark": "",
-      "createdAt": "2026-08-27T08:01:23.947Z",
-      "updatedAt": "2026-08-27T08:01:23.973Z",
-      "closedAt": "2026-08-27T08:01:23.973Z",
+      "createdAt": "2026-08-27T08:09:28.508Z",
+      "updatedAt": "2026-08-27T08:09:28.533Z",
+      "closedAt": "2026-08-27T08:09:28.533Z",
       "history": [
         {
           "status": "待处理",
-          "time": "2026-08-27T08:01:23.947Z",
+          "time": "2026-08-27T08:09:28.508Z",
           "remark": "事件创建"
         },
         {
           "status": "已关闭",
-          "time": "2026-08-27T08:01:23.973Z",
+          "time": "2026-08-27T08:09:28.533Z",
           "remark": "关闭事件: 待处理 → 已关闭"
         }
       ],
@@ -46,44 +46,49 @@
       "version": 2
     },
     {
-      "id": "inc_mtb8hln4_0lxs67",
+      "id": "inc_mtb8rzih_hu81fj",
       "title": "待关闭",
       "severity": "低",
       "assignee": "C",
-      "status": "处理中",
+      "status": "已关闭",
       "remark": "",
-      "createdAt": "2026-08-27T08:01:23.920Z",
-      "updatedAt": "2026-08-27T08:01:23.920Z",
-      "closedAt": null,
+      "createdAt": "2026-08-27T08:09:28.457Z",
+      "updatedAt": "2026-08-27T08:09:28.483Z",
+      "closedAt": "2026-08-27T08:09:28.483Z",
       "history": [
         {
           "status": "处理中",
-          "time": "2026-08-27T08:01:23.920Z",
+          "time": "2026-08-27T08:09:28.457Z",
           "remark": "事件创建"
+        },
+        {
+          "status": "已关闭",
+          "time": "2026-08-27T08:09:28.483Z",
+          "remark": "关闭事件（备注: 问题已修复）"
         }
       ],
       "idempotencyKey": null,
-      "version": 1
+      "version": 2
     },
     {
-      "id": "inc_mtb8hlll_vu1dd9",
+      "id": "inc_mtb8rzgv_tmwe88",
       "title": "乐观锁测试",
       "severity": "低",
       "assignee": "X",
       "status": "处理中",
       "remark": "",
-      "createdAt": "2026-08-27T08:01:23.865Z",
-      "updatedAt": "2026-08-27T08:01:23.891Z",
+      "createdAt": "2026-08-27T08:09:28.399Z",
+      "updatedAt": "2026-08-27T08:09:28.426Z",
       "closedAt": null,
       "history": [
         {
           "status": "待处理",
-          "time": "2026-08-27T08:01:23.865Z",
+          "time": "2026-08-27T08:09:28.399Z",
           "remark": "事件创建"
         },
         {
           "status": "处理中",
-          "time": "2026-08-27T08:01:23.891Z",
+          "time": "2026-08-27T08:09:28.426Z",
           "remark": "状态变更: 待处理 → 处理中"
         }
       ],
@@ -91,24 +96,24 @@
       "version": 2
     },
     {
-      "id": "inc_mtb8hljd_gcb3sa",
+      "id": "inc_mtb8rzeo_pz12d2",
       "title": "状态机测试",
       "severity": "低",
       "assignee": "X",
       "status": "已关闭",
       "remark": "",
-      "createdAt": "2026-08-27T08:01:23.785Z",
-      "updatedAt": "2026-08-27T08:01:23.813Z",
-      "closedAt": "2026-08-27T08:01:23.813Z",
+      "createdAt": "2026-08-27T08:09:28.320Z",
+      "updatedAt": "2026-08-27T08:09:28.348Z",
+      "closedAt": "2026-08-27T08:09:28.348Z",
       "history": [
         {
           "status": "已解决",
-          "time": "2026-08-27T08:01:23.785Z",
+          "time": "2026-08-27T08:09:28.320Z",
           "remark": "事件创建"
         },
         {
           "status": "已关闭",
-          "time": "2026-08-27T08:01:23.813Z",
+          "time": "2026-08-27T08:09:28.348Z",
           "remark": "关闭事件: 已解决 → 已关闭"
         }
       ],
@@ -116,19 +121,19 @@
       "version": 2
     },
     {
-      "id": "inc_mtb8hlgc_lk83p8",
+      "id": "inc_mtb8rzc7_m51n7c",
       "title": "筛选测试-处理中",
       "severity": "中",
       "assignee": "X",
       "status": "处理中",
       "remark": "",
-      "createdAt": "2026-08-27T08:01:23.676Z",
-      "updatedAt": "2026-08-27T08:01:23.676Z",
+      "createdAt": "2026-08-27T08:09:28.231Z",
+      "updatedAt": "2026-08-27T08:09:28.231Z",
       "closedAt": null,
       "history": [
         {
           "status": "处理中",
-          "time": "2026-08-27T08:01:23.676Z",
+          "time": "2026-08-27T08:09:28.231Z",
           "remark": "事件创建"
         }
       ],
@@ -136,24 +141,24 @@
       "version": 1
     },
     {
-      "id": "inc_mtb8hlel_o8ec77",
+      "id": "inc_mtb8rzai_gkga61",
       "title": "测试事件A-已修改",
       "severity": "高",
       "assignee": "修改员",
       "status": "处理中",
       "remark": "修改备注",
-      "createdAt": "2026-08-27T08:01:23.613Z",
-      "updatedAt": "2026-08-27T08:01:23.756Z",
+      "createdAt": "2026-08-27T08:09:28.170Z",
+      "updatedAt": "2026-08-27T08:09:28.293Z",
       "closedAt": null,
       "history": [
         {
           "status": "待处理",
-          "time": "2026-08-27T08:01:23.613Z",
+          "time": "2026-08-27T08:09:28.170Z",
           "remark": "事件创建"
         },
         {
           "status": "处理中",
-          "time": "2026-08-27T08:01:23.756Z",
+          "time": "2026-08-27T08:09:28.293Z",
           "remark": "状态变更: 待处理 → 处理中（备注: 修改备注）"
         }
       ],
@@ -163,6 +168,6 @@
   ],
   "_meta": {
     "version": 1,
-    "createdAt": "2026-08-27T08:01:23.614Z"
+    "createdAt": "2026-08-27T08:09:28.170Z"
   }
 }

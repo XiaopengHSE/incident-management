@@ -113,12 +113,12 @@ async function runTests() {
     await request('POST', '/api/incidents', {
       title: '筛选测试-处理中', severity: '中', assignee: 'X', status: '处理中', remark: '',
     });
-    const { body } = await request('GET', '/api/incidents?status=' + encodeURIComponent('待处理'));
+    const { body } = await request('GET', '/api/incidents?status=待处理');
     assert.ok(body.incidents.every(i => i.status === '待处理'));
   });
 
   await test('GET /api/incidents?keyword=测试 关键词筛选', async () => {
-    const { body } = await request('GET', '/api/incidents?keyword=' + encodeURIComponent('测试'));
+    const { body } = await request('GET', '/api/incidents?keyword=测试');
     assert.ok(body.incidents.length >= 1);
     assert.ok(body.incidents.some(i => i.title.includes('测试')));
   });
@@ -186,7 +186,7 @@ async function runTests() {
     const { body: created } = await request('POST', '/api/incidents', {
       title: '待关闭', severity: '低', assignee: 'C', status: '处理中', remark: '',
     });
-    const { status, body } = await request('POST', `/api/incidents/${created.body.incident.id}/close`, { remark: '问题已修复' });
+    const { status, body } = await request('POST', `/api/incidents/${created.incident.id}/close`, { remark: '问题已修复' });
     assert.strictEqual(status, 200);
     assert.strictEqual(body.success, true);
     assert.strictEqual(body.incident.status, '已关闭');
@@ -228,7 +228,7 @@ async function runTests() {
     assert.strictEqual(status, 200);
     assert.strictEqual(body.success, true);
     assert.strictEqual(body._idempotent, true);
-    assert.strictEqual(body.incident.id, first.body.incident.id);
+    assert.strictEqual(body.incident.id, first.incident.id);
   });
 
   // 9. 导出

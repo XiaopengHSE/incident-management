@@ -1,62 +1,92 @@
 # 异常事件登记台
 
-一个纯前端、零后端依赖的本地事件管理应用。所有数据保存在浏览器 `localStorage` 中，刷新页面数据不丢失。
+前后端分离的异常事件管理系统。纯本地运行，无需外部依赖，不连接真实业务系统，不发送真实消息。
 
-## 功能特性
-
-| 功能 | 说明 |
-|------|------|
-| 新增事件 | 填写标题、严重度、负责人、状态、备注 |
-| 编辑事件 | 修改未关闭事件的任意字段 |
-| 关闭事件 | 软关闭，保留记录但禁止编辑 |
-| 列表筛选 | 按状态、严重度、负责人、关键词实时筛选 |
-| 超时提醒 | 根据严重度自动计算超时阈值（紧急4h/高24h/中72h/低168h），超时事件高亮 |
-| 状态历史 | 每次状态变更自动记录时间戳与备注，支持查看完整时间线 |
-| 数据导出 | 支持导出 JSON（完整数据）与 CSV（表格格式） |
-| 空状态 | 无数据时显示引导，一键新建 |
-| 错误提示 | 表单校验失败时显示具体原因，操作结果以 Toast 通知 |
-
-## 文件结构
+## 架构概览
 
 ```
-incident-dashboard/
-├── index.html      # 主应用（浏览器直接打开即可运行）
-├── app.js          # 核心业务逻辑（CRUD、筛选、导出、超时计算）
-├── tests.html      # 浏览器测试页面（独立运行，绿色即通过）
-├── README.md       # 本说明
-├── PLAN.md         # 执行计划（含原始需求、技术方案、模块拆解）
-├── CHANGELOG.md    # 变更记录
-└── FIXLOG.md       # 错误修复记录
+┌─────────────┐     HTTP /fetch      ┌─────────────┐
+│   浏览器     │ ◄──────────────────► │  Express    │
+│  (index.html)│                      │  (server.js) │
+├─────────────┤                      ├─────────────┤
+│ api.js      │                      │ routes/     │
+│ - API 客户端 │                      │ - REST API  │
+│ - 加载状态   │                      │             │
+│ - 错误处理   │                      │ middleware/ │
+│ - 缓存刷新   │                      │ - 请求日志   │
+│             │                      │ - 错误追踪   │
+│ app.js      │                      │ - 请求校验   │
+│ - 状态管理   │                      │             │
+│ - 业务封装   │                      │ domain/     │
+│ - 表单校验   │                      │ - 状态机    │
+│             │                      │ - 权限规则   │
+│             │                      │ - 幂等控制   │
+│             │                      │             │
+│             │                      │ data/       │
+│             │                      │ - JSON 存储  │
+│             │                      │ - 原子写入   │
+└─────────────┘                      └─────────────┘
 ```
 
-## 使用方式
+## 快速开始
 
-### 方式一：直接打开（推荐）
-1. 用任意现代浏览器打开 `index.html`
-2. 点击右上角「新增事件」开始登记
-3. 所有数据自动保存在浏览器本地存储中
+### 1. 启动后端
 
-### 方式二：本地服务器（如需跨域测试）
 ```bash
-# 进入项目目录后执行
-npx serve .
-# 或
-python -m http.server 8080
+cd backend
+node server.js
 ```
 
-### 运行测试
-1. 浏览器打开 `tests.html`
-2. 页面自动运行全部测试并显示通过/失败统计
-3. 点击「重新运行测试」可重复验证
+后端服务默认监听 `http://localhost:3000`，API 前缀为 `/api/incidents`。
 
-## 技术说明
+### 2. 打开前端
 
-- **架构**：纯前端单页应用，无框架依赖
-- **持久化**：`localStorage`（键名：`incident-dashboard-data`）
-- **兼容性**：Chrome / Edge / Firefox / Safari 最新两版
-- **数据安全**：不连接任何外部服务，不发送网络请求，数据仅存本地
+浏览器访问 `http://localhost:3000` 即可使用完整功能。
 
-## 注意事项
+> 后端 `server.js` 已通过 `express.static` 托管了前端文件，无需额外启动前端服务器。
 
-- 清除浏览器缓存或 `localStorage` 将导致数据丢失，重要数据请及时通过「导出」功能备份
-- 如需清空所有数据，可在浏览器控制台执行：`IncidentApp._clearStorage()`
+### 3. 运行测试
+
+**后端 API 测试：**
+```bash
+cd backend
+node test.js
+```
+
+**前端浏览器测试：**
+浏览器直接打开 `tests.html`（使用 localStorage 独立测试前端 UI 逻辑）。
+
+## API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/incidents` | 列表查询（支持 `?status=&severity=&assignee=&keyword=`） |
+| GET | `/api/incidents/stats` | 统计数据 |
+| POST | `/api/incidents` | 创建事件 |
+| GET | `/api/incidents/:id` | 事件详情 |
+| PATCH | `/api/incidents/:id` | 更新事件（支持乐观锁 `version`） |
+| POST | `/api/incidents/:id/close` | 关闭事件 |
+| GET | `/api/incidents/export/:format` | 导出（`json` 或 `csv`） |
+
+## 领域规则
+
+- **状态迁移**：待处理 ↔ 处理中 ↔ 已解决 → 已关闭（终态不可迁出）
+- **权限控制**：已关闭事件不可编辑/关闭
+- **乐观锁**：更新/关闭时传入 `version` 防止并发冲突
+- **幂等性**：创建时传入 `idempotencyKey`，重复请求返回已有数据
+- **超时规则**：紧急 4h / 高 24h / 中 72h / 低 7d
+
+## 数据与观测
+
+- **数据存储**：`backend/data/incidents.json`（自动创建）
+- **请求日志**：`backend/logs/access.log`
+- **错误追踪**：`backend/logs/error.log` + `backend/logs/trace.log`
+- **数据备份**：`backend/data/backups/`（自动保留最近 20 份）
+
+## 技术栈
+
+- **后端**：Node.js + Express + CORS
+- **前端**：原生 HTML/CSS/JS（无框架依赖）
+- **存储**：JSON 文件（原子写入）
+- **测试**：Node.js assert + 浏览器原生测试

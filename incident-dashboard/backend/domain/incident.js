@@ -179,11 +179,11 @@ function closeEventEntity(incident, closeRemark, expectedVersion) {
     throw new DomainError('CONFLICT', '数据已被他人修改，请刷新后重试');
   }
 
-  checkPermission(incident, 'close');
-
   if (incident.status === '已关闭') {
     throw new DomainError('CONFLICT', '事件已经是关闭状态');
   }
+
+  checkPermission(incident, 'close');
 
   const oldStatus = incident.status;
   const now = nowISO();
