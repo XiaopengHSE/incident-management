@@ -57,6 +57,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// ===== Swagger 文档 =====
+app.get('/api/docs', (req, res) => {
+  res.sendFile(path.join(__dirname, 'swagger.html'));
+});
+app.get('/api/docs/swagger.json', (req, res) => {
+  res.sendFile(path.join(__dirname, 'swagger.json'));
+});
+// 兼容 swagger.html 内部相对路径
+app.get('/swagger.json', (req, res) => {
+  res.sendFile(path.join(__dirname, 'swagger.json'));
+});
+
 // ===== 404 处理 =====
 app.use((req, res) => {
   // API 请求返回 JSON 404

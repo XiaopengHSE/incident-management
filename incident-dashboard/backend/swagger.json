@@ -1,0 +1,773 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "异常事件登记台 API",
+    "description": "事件管理 REST API，支持事件 CRUD、状态流转、乐观锁、幂等控制、超时提醒、数据导出等功能。",
+    "version": "1.0.0",
+    "contact": {
+      "name": "XiaopengHSE",
+      "url": "https://github.com/XiaopengHSE/incident-management"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://backend-c8ax.vercel.app",
+      "description": "Vercel 生产环境"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "本地开发环境"
+    }
+  ],
+  "tags": [
+    {
+      "name": "事件管理",
+      "description": "事件的创建、查询、更新、关闭"
+    },
+    {
+      "name": "统计与导出",
+      "description": "统计数据与数据导出"
+    },
+    {
+      "name": "系统",
+      "description": "健康检查"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Incident": {
+        "type": "object",
+        "description": "事件实体",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "事件唯一ID",
+            "example": "inc_mtb9eyyu_uwlp0a"
+          },
+          "title": {
+            "type": "string",
+            "description": "事件标题",
+            "maxLength": 200,
+            "example": "支付模块异常"
+          },
+          "severity": {
+            "type": "string",
+            "description": "严重度",
+            "enum": ["紧急", "高", "中", "低"],
+            "example": "高"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "负责人",
+            "maxLength": 50,
+            "example": "张三"
+          },
+          "status": {
+            "type": "string",
+            "description": "处理状态",
+            "enum": ["待处理", "处理中", "已解决", "已关闭"],
+            "example": "待处理"
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注",
+            "maxLength": 1000,
+            "example": "第三方支付网关超时导致订单状态不一致"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "创建时间",
+            "example": "2026-08-27T08:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "最后更新时间",
+            "example": "2026-08-27T08:00:00.000Z"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "关闭时间（未关闭为 null）",
+            "example": null
+          },
+          "history": {
+            "type": "array",
+            "description": "状态变更历史",
+            "items": {
+              "$ref": "#/components/schemas/HistoryEntry"
+            }
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "幂等键（防重复提交）",
+            "example": "create_支付模块异常_张三"
+          },
+          "version": {
+            "type": "integer",
+            "description": "乐观锁版本号",
+            "example": 1
+          }
+        },
+        "required": ["id", "title", "severity", "status", "createdAt", "updatedAt", "version"]
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "description": "状态变更记录",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "变更后的状态",
+            "example": "处理中"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "变更时间",
+            "example": "2026-08-27T08:00:00.000Z"
+          },
+          "remark": {
+            "type": "string",
+            "description": "变更说明",
+            "example": "状态变更: 待处理 → 处理中"
+          }
+        }
+      },
+      "CreateIncidentRequest": {
+        "type": "object",
+        "description": "创建事件请求体",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "事件标题（必填，1-200字）",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "支付模块异常"
+          },
+          "severity": {
+            "type": "string",
+            "description": "严重度（必填）",
+            "enum": ["紧急", "高", "中", "低"],
+            "example": "高"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "负责人（可选，最长50字）",
+            "maxLength": 50,
+            "example": "张三"
+          },
+          "status": {
+            "type": "string",
+            "description": "初始状态（必填）",
+            "enum": ["待处理", "处理中", "已解决", "已关闭"],
+            "example": "待处理"
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注（可选，最长1000字）",
+            "maxLength": 1000,
+            "example": "第三方支付网关超时导致订单状态不一致"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "幂等键（可选，防重复提交。同一 key 重复提交会返回已创建的事件）",
+            "example": "create_支付模块异常_张三"
+          }
+        },
+        "required": ["title", "severity", "status"]
+      },
+      "UpdateIncidentRequest": {
+        "type": "object",
+        "description": "更新事件请求体",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "事件标题（必填，1-200字）",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "支付模块异常 - 已定位"
+          },
+          "severity": {
+            "type": "string",
+            "description": "严重度（可选）",
+            "enum": ["紧急", "高", "中", "低"],
+            "example": "高"
+          },
+          "assignee": {
+            "type": "string",
+            "description": "负责人",
+            "maxLength": 50,
+            "example": "张三"
+          },
+          "status": {
+            "type": "string",
+            "description": "更新后的状态",
+            "enum": ["待处理", "处理中", "已解决", "已关闭"],
+            "example": "处理中"
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注",
+            "maxLength": 1000,
+            "example": "已定位到第三方网关超时问题，正在处理"
+          },
+          "version": {
+            "type": "integer",
+            "description": "乐观锁版本号（可选，传入时校验版本一致性）",
+            "example": 1
+          }
+        },
+        "required": ["title", "status"]
+      },
+      "CloseIncidentRequest": {
+        "type": "object",
+        "description": "关闭事件请求体",
+        "properties": {
+          "remark": {
+            "type": "string",
+            "description": "关闭备注",
+            "example": "问题已修复，关闭事件"
+          },
+          "version": {
+            "type": "integer",
+            "description": "乐观锁版本号（可选）",
+            "example": 2
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "description": "成功响应",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "incidents": {
+            "type": "array",
+            "description": "事件列表",
+            "items": {
+              "$ref": "#/components/schemas/Incident"
+            }
+          },
+          "incident": {
+            "$ref": "#/components/schemas/Incident"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/Stats"
+          }
+        }
+      },
+      "Stats": {
+        "type": "object",
+        "description": "统计数据",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "description": "事件总数",
+            "example": 42
+          },
+          "open": {
+            "type": "integer",
+            "description": "未关闭事件数",
+            "example": 15
+          },
+          "closed": {
+            "type": "integer",
+            "description": "已关闭事件数",
+            "example": 27
+          },
+          "overdue": {
+            "type": "integer",
+            "description": "超时事件数（按严重度分级计算：紧急4h/高24h/中72h/低168h）",
+            "example": 3
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "错误响应",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "错误码",
+                "enum": ["VALIDATION", "FORBIDDEN", "CONFLICT", "IDEMPOTENT", "NOT_FOUND", "INTERNAL"],
+                "example": "VALIDATION"
+              },
+              "message": {
+                "type": "string",
+                "description": "错误描述",
+                "example": "事件标题不能为空; 处理状态必须是: 待处理/处理中/已解决/已关闭"
+              },
+              "reqId": {
+                "type": "string",
+                "description": "请求ID（用于追踪）",
+                "example": "req_mtb9eyyu_uwlp"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/incidents": {
+      "get": {
+        "tags": ["事件管理"],
+        "summary": "查询事件列表",
+        "description": "支持按状态、严重度、负责人、关键词筛选，默认按创建时间倒序排列。",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "按处理状态筛选",
+            "schema": {
+              "type": "string",
+              "enum": ["待处理", "处理中", "已解决", "已关闭"]
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "description": "按严重度筛选",
+            "schema": {
+              "type": "string",
+              "enum": ["紧急", "高", "中", "低"]
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "description": "按负责人筛选（模糊匹配）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "关键词搜索（匹配标题、备注、负责人）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "excludeClosed",
+            "in": "query",
+            "description": "排除已关闭事件",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "incidents": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Incident" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["事件管理"],
+        "summary": "创建事件",
+        "description": "创建新的事件。支持幂等控制：传入 idempotencyKey 时，重复提交不会创建新事件，而是返回已有事件。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateIncidentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "incident": { "$ref": "#/components/schemas/Incident" }
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "幂等重复请求（返回已创建的事件）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "incident": { "$ref": "#/components/schemas/Incident" },
+                    "_idempotent": { "type": "boolean", "example": true }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/stats": {
+      "get": {
+        "tags": ["统计与导出"],
+        "summary": "获取统计数据",
+        "description": "返回事件总数、未关闭数、已关闭数、超时数。超时按严重度分级计算：紧急4小时、高24小时、中72小时、低168小时。",
+        "responses": {
+          "200": {
+            "description": "统计成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "stats": { "$ref": "#/components/schemas/Stats" }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{id}": {
+      "get": {
+        "tags": ["事件管理"],
+        "summary": "查询事件详情",
+        "description": "根据事件ID获取事件完整信息，包含状态变更历史。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "事件ID",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "inc_mtb9eyyu_uwlp0a"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "incident": { "$ref": "#/components/schemas/Incident" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "事件不存在",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["事件管理"],
+        "summary": "更新事件",
+        "description": "更新事件信息。支持乐观锁：传入 version 时校验版本一致性。状态变更需符合状态机规则。\n\n状态迁移规则：\n- 待处理 → 处理中 / 已解决 / 已关闭\n- 处理中 → 待处理 / 已解决 / 已关闭\n- 已解决 → 待处理 / 处理中 / 已关闭\n- 已关闭 → （终态，不可迁移）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "事件ID",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "inc_mtb9eyyu_uwlp0a"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateIncidentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "incident": { "$ref": "#/components/schemas/Incident" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "状态不允许操作（如已关闭的事件不能修改）",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "事件不存在",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "乐观锁冲突（数据已被他人修改）",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{id}/close": {
+      "post": {
+        "tags": ["事件管理"],
+        "summary": "关闭事件",
+        "description": "关闭指定事件。已关闭的事件不能再次关闭。支持乐观锁。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "事件ID",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "inc_mtb9eyyu_uwlp0a"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CloseIncidentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "关闭成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "incident": { "$ref": "#/components/schemas/Incident" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "当前状态不允许关闭操作",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "事件不存在",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "事件已是关闭状态 或 乐观锁冲突",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/export/{format}": {
+      "get": {
+        "tags": ["统计与导出"],
+        "summary": "导出事件数据",
+        "description": "导出全部事件数据为 JSON 或 CSV 文件。CSV 文件带 BOM 头，兼容 Excel 中文显示。",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "path",
+            "description": "导出格式",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["json", "csv"]
+            },
+            "example": "csv"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "导出成功",
+            "content": {
+              "application/json": {
+                "schema": { "type": "string" }
+              },
+              "text/csv": {
+                "schema": { "type": "string" }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "附件文件名",
+                "schema": { "type": "string" },
+                "example": "attachment; filename=\"incidents-2026-08-27.json\""
+              }
+            }
+          },
+          "400": {
+            "description": "不支持的导出格式",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": ["系统"],
+        "summary": "健康检查",
+        "description": "检查服务运行状态。",
+        "responses": {
+          "200": {
+            "description": "服务正常",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "time": { "type": "string", "format": "date-time", "example": "2026-08-27T08:00:00.000Z" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
