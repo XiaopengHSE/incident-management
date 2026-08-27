@@ -23,7 +23,31 @@ app.use(express.json({ limit: '1mb' }));
 app.use(requestLogger());
 
 // ===== 静态文件（前端） =====
-app.use(express.static(path.join(__dirname, '..')));
+// 本地: __dirname = incident-dashboard/backend, 前端在 incident-dashboard/
+// Vercel: __dirname = /var/task/incident-dashboard/backend, 前端在 /var/task/incident-dashboard/
+const FRONTEND_DIR = path.join(__dirname, '..');
+
+// 检查前端目录是否存在 index.html，不存在则尝试上两级（Vercel 不同配置情况）
+let staticDir = FRONTEND_DIR;
+const fs = require('fs');
+if (!fs.existsSync(path.join(FRONTEND_DIR, 'index.html'))) {
+  const altDir = path.join(__dirname, '..', '..');
+  if (fs.existsSync(path.join(altDir, 'index.html'))) {
+    staticDir = altDir;
+  }
+}
+
+app.use(express.static(staticDir));
+
+// 根路径返回 index.html
+app.get('/', (req, res) => {
+  const indexPath = path.join(staticDir, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '前端文件未找到' } });
+  }
+});
 
 // ===== API 路由 =====
 app.use('/api/incidents', incidentRoutes);
@@ -35,23 +59,35 @@ app.get('/api/health', (req, res) => {
 
 // ===== 404 处理 =====
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: { code: 'NOT_FOUND', message: '接口不存在' },
-  });
+  // API 请求返回 JSON 404
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      error: { code: 'NOT_FOUND', message: '接口不存在' },
+    });
+  }
+  // 非 API 请求回退到 index.html（支持前端路由）
+  const indexPath = path.join(staticDir, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '页面未找到' } });
+  }
 });
 
 // ===== 错误处理（必须放在最后） =====
 app.use(errorHandler());
 
-// ===== 启动 =====
-app.listen(PORT, () => {
-  console.log(`============================================`);
-  console.log(`  异常事件登记台 - 后端服务`);
-  console.log(`  监听端口: ${PORT}`);
-  console.log(`  API 前缀: /api/incidents`);
-  console.log(`  前端地址: http://localhost:${PORT}`);
-  console.log(`============================================`);
-});
+// ===== 启动（仅本地开发时执行，Vercel 上跳过） =====
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`============================================`);
+    console.log(`  异常事件登记台 - 后端服务`);
+    console.log(`  监听端口: ${PORT}`);
+    console.log(`  API 前缀: /api/incidents`);
+    console.log(`  前端地址: http://localhost:${PORT}`);
+    console.log(`============================================`);
+  });
+}
 
 module.exports = app;
