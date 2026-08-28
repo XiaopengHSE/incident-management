@@ -17,7 +17,7 @@ const {
 } = require('../middleware/validator');
 
 // ========== GET /api/incidents - 列表查询 ==========
-router.get('/', (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const filter = {
       status: req.query.status || undefined,
@@ -26,7 +26,7 @@ router.get('/', (req, res, next) => {
       keyword: req.query.keyword || undefined,
       excludeClosed: req.query.excludeClosed === 'true',
     };
-    const incidents = repo.list(filter);
+    const incidents = await repo.list(filter);
     res.json({ success: true, incidents });
   } catch (e) {
     next(e);
@@ -34,10 +34,10 @@ router.get('/', (req, res, next) => {
 });
 
 // ========== GET /api/incidents/stats - 统计 ==========
-router.get('/stats', (req, res, next) => {
+router.get('/stats', async (req, res, next) => {
   try {
-    const stats = repo.getStats();
-    const all = repo.list({ excludeClosed: true });
+    const stats = await repo.getStats();
+    const all = await repo.list({ excludeClosed: true });
     stats.overdue = all.filter(domain.isOverdue).length;
     res.json({ success: true, stats });
   } catch (e) {
@@ -46,13 +46,13 @@ router.get('/stats', (req, res, next) => {
 });
 
 // ========== POST /api/incidents - 创建事件 ==========
-router.post('/', validateCreateIncident, (req, res, next) => {
+router.post('/', validateCreateIncident, async (req, res, next) => {
   try {
     const { title, severity, assignee, status, remark, idempotencyKey } = req.body;
 
     // 幂等校验
     if (idempotencyKey) {
-      const existing = repo.findByIdempotencyKey(idempotencyKey);
+      const existing = await repo.findByIdempotencyKey(idempotencyKey);
       domain.checkIdempotency(existing, idempotencyKey);
     }
 
@@ -60,7 +60,7 @@ router.post('/', validateCreateIncident, (req, res, next) => {
       title, severity, assignee, status, remark, idempotencyKey
     });
 
-    repo.insert(incident);
+    await repo.insert(incident);
     res.status(201).json({ success: true, incident });
   } catch (e) {
     next(e);
@@ -68,9 +68,9 @@ router.post('/', validateCreateIncident, (req, res, next) => {
 });
 
 // ========== GET /api/incidents/:id - 详情 ==========
-router.get('/:id', (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
-    const incident = repo.findById(req.params.id);
+    const incident = await repo.findById(req.params.id);
     if (!incident) {
       return res.status(404).json({
         success: false,
@@ -84,14 +84,14 @@ router.get('/:id', (req, res, next) => {
 });
 
 // ========== PATCH /api/incidents/:id - 更新事件 ==========
-router.patch('/:id', validateUpdateIncident, (req, res, next) => {
+router.patch('/:id', validateUpdateIncident, async (req, res, next) => {
   try {
     const { title, severity, assignee, status, remark } = req.body;
     const expectedVersion = req.body.version !== undefined
       ? parseInt(req.body.version, 10)
       : undefined;
 
-    const updated = repo.update(req.params.id, (incident) => {
+    const updated = await repo.update(req.params.id, (incident) => {
       return domain.updateEventEntity(incident, {
         title, severity, assignee, status, remark
       }, expectedVersion);
@@ -111,14 +111,14 @@ router.patch('/:id', validateUpdateIncident, (req, res, next) => {
 });
 
 // ========== POST /api/incidents/:id/close - 关闭事件 ==========
-router.post('/:id/close', validateCloseIncident, (req, res, next) => {
+router.post('/:id/close', validateCloseIncident, async (req, res, next) => {
   try {
     const { remark } = req.body || {};
     const expectedVersion = req.body && req.body.version !== undefined
       ? parseInt(req.body.version, 10)
       : undefined;
 
-    const closed = repo.update(req.params.id, (incident) => {
+    const closed = await repo.update(req.params.id, (incident) => {
       return domain.closeEventEntity(incident, remark, expectedVersion);
     });
 
@@ -136,16 +136,16 @@ router.post('/:id/close', validateCloseIncident, (req, res, next) => {
 });
 
 // ========== GET /api/incidents/export/:format - 导出 ==========
-router.get('/export/:format', (req, res, next) => {
+router.get('/export/:format', async (req, res, next) => {
   try {
     const format = req.params.format;
     if (format === 'json') {
-      const json = repo.exportJSON();
+      const json = await repo.exportJSON();
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Disposition', `attachment; filename="incidents-${new Date().toISOString().slice(0,10)}.json"`);
       res.send(json);
     } else if (format === 'csv') {
-      const csv = '\uFEFF' + repo.exportCSV();
+      const csv = '\uFEFF' + (await repo.exportCSV());
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="incidents-${new Date().toISOString().slice(0,10)}.csv"`);
       res.send(csv);
