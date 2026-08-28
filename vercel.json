@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/((?!api\\.js|app\\.js|tests\\.html|favicon\\.ico|favicon\\.png).*)", "destination": "/api" }
+    { "source": "/api", "destination": "/api" },
+    { "source": "/swagger.json", "destination": "/api" }
   ]
 }
