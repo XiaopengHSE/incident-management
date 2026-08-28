@@ -676,8 +676,140 @@
     </div>
   </div>
 
-  <script src="api.js"></script>
-  <script src="app.js"></script>
+  <script>
+    // ========== api.js 内联 ==========
+    /**
+     * 前端服务层: API 客户端
+     * 职责: 封装 HTTP 请求、加载状态、错误处理、缓存刷新
+     */
+    (function () {
+      'use strict';
+      const BASE_URL = '';
+      const CACHE_KEY = '_api_cache_incidents';
+      const CACHE_TTL_MS = 30000;
+      const state = { loading: false, error: null, lastFetch: 0, pendingRequests: new Map() };
+      function setLoading(v) { state.loading = v; document.dispatchEvent(new CustomEvent('api:loading', { detail: v })); }
+      function setError(err) { state.error = err; document.dispatchEvent(new CustomEvent('api:error', { detail: err })); }
+      function clearError() { state.error = null; }
+      async function request(method, path, body, options = {}) {
+        const url = `${BASE_URL}${path}`;
+        const abortKey = `${method}:${path}`;
+        if (method === 'GET' && state.pendingRequests.has(abortKey)) { state.pendingRequests.get(abortKey).abort(); }
+        const controller = new AbortController();
+        state.pendingRequests.set(abortKey, controller);
+        const opts = { method, headers: { 'Content-Type': 'application/json' }, signal: controller.signal, ...options };
+        if (body) opts.body = JSON.stringify(body);
+        setLoading(true); clearError();
+        try {
+          const response = await fetch(url, opts);
+          const data = await response.json().catch(() => ({ success: false, error: { message: '服务器返回了非 JSON 数据' } }));
+          if (!response.ok || !data.success) {
+            const err = new Error(data.error?.message || `HTTP ${response.status}`);
+            err.code = data.error?.code || 'HTTP_ERROR'; err.status = response.status; err.reqId = data.error?.reqId;
+            throw err;
+          }
+          return data;
+        } catch (e) {
+          if (e.name === 'AbortError') return { _aborted: true };
+          setError(e); throw e;
+        } finally {
+          state.pendingRequests.delete(abortKey);
+          if (state.pendingRequests.size === 0) setLoading(false);
+        }
+      }
+      function cacheGet(key) { try { const raw = localStorage.getItem(CACHE_KEY + ':' + key); if (!raw) return null; const { t, data } = JSON.parse(raw); if (Date.now() - t > CACHE_TTL_MS) return null; return data; } catch (e) { return null; } }
+      function cacheSet(key, data) { try { localStorage.setItem(CACHE_KEY + ':' + key, JSON.stringify({ t: Date.now(), data })); } catch (e) {} }
+      function cacheClear() { Object.keys(localStorage).filter(k => k.startsWith(CACHE_KEY + ':')).forEach(k => localStorage.removeItem(k)); }
+      async function getIncidents(filter = {}) {
+        const qs = new URLSearchParams();
+        Object.entries(filter).forEach(([k, v]) => { if (v) qs.append(k, v); });
+        const path = '/api/incidents?' + qs.toString();
+        const cached = cacheGet(path); if (cached) return cached;
+        const data = await request('GET', path); cacheSet(path, data); return data;
+      }
+      async function getIncident(id) { return request('GET', `/api/incidents/${id}`); }
+      async function createIncident(payload) {
+        const body = { ...payload, idempotencyKey: 'create_' + payload.title + '_' + (payload.assignee || '') };
+        const data = await request('POST', '/api/incidents', body); cacheClear(); return data;
+      }
+      async function updateIncident(id, payload) { const data = await request('PATCH', `/api/incidents/${id}`, payload); cacheClear(); return data; }
+      async function closeIncident(id, remark, version) { const data = await request('POST', `/api/incidents/${id}/close`, { remark, version }); cacheClear(); return data; }
+      async function getStats() { const cached = cacheGet('/api/incidents/stats'); if (cached) return cached; const data = await request('GET', '/api/incidents/stats'); cacheSet('/api/incidents/stats', data); return data; }
+      async function exportData(format) {
+        const url = `${BASE_URL}/api/incidents/export/${format}`;
+        const response = await fetch(url);
+        if (!response.ok) { const err = new Error('导出失败'); err.status = response.status; throw err; }
+        const blob = await response.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = `incidents_${new Date().toISOString().slice(0,10)}.${format}`; a.click(); URL.revokeObjectURL(a.href);
+      }
+      function startAutoRefresh(callback, intervalMs = 30000) {
+        const timer = setInterval(async () => { try { const data = await getIncidents(); if (callback) callback(data); } catch (e) {} }, intervalMs);
+        return () => clearInterval(timer);
+      }
+      function validateForm({ title, status }) {
+        const errors = [];
+        if (!title || title.trim().length === 0) errors.push('事件标题不能为空');
+        if (title && title.trim().length > 200) errors.push('事件标题不能超过200字');
+        if (!status) errors.push('处理状态不能为空');
+        return errors;
+      }
+      window.IncidentAPI = { getIncidents, getIncident, createIncident, updateIncident, closeIncident, getStats, exportData, startAutoRefresh, validateForm, cacheClear, getState: () => ({ ...state }) };
+    })();
+
+    // ========== app.js 内联 ==========
+    /**
+     * 前端应用层: 状态管理、业务封装
+     */
+    (function () {
+      'use strict';
+      const SEVERITY_TIMEOUT_HOURS = { '紧急': 4, '高': 24, '中': 72, '低': 168 };
+      const VALID_STATUSES = ['待处理', '处理中', '已解决', '已关闭'];
+      const appState = { incidents: [], stats: { total: 0, open: 0, closed: 0, overdue: 0 }, currentFilter: {}, loading: false, error: null, autoRefreshStop: null };
+      function setState(patch) { Object.assign(appState, patch); document.dispatchEvent(new CustomEvent('app:state', { detail: { ...appState } })); }
+      async function init() { await Promise.all([refreshList(), refreshStats()]); }
+      async function refreshList(filter = appState.currentFilter) {
+        setState({ loading: true, error: null, currentFilter: filter });
+        try {
+          const data = await IncidentAPI.getIncidents(filter);
+          setState({ incidents: data.incidents || [], loading: false });
+          return data.incidents || [];
+        } catch (e) { setState({ error: e.message, loading: false }); throw e; }
+      }
+      async function refreshStats() { try { const data = await IncidentAPI.getStats(); setState({ stats: data.stats || { total: 0, open: 0, closed: 0, overdue: 0 } }); } catch (e) {} }
+      async function createIncident({ title, severity, assignee, status, remark }) {
+        const errors = IncidentAPI.validateForm({ title, status });
+        if (errors.length > 0) return { success: false, error: errors.join('; ') };
+        try {
+          const data = await IncidentAPI.createIncident({ title, severity: severity || '中', assignee, status: status || '待处理', remark });
+          await Promise.all([refreshList(), refreshStats()]);
+          return { success: true, incident: data.incident };
+        } catch (e) { return { success: false, error: e.message }; }
+      }
+      async function updateIncident(id, { title, severity, assignee, status, remark, version }) {
+        const errors = IncidentAPI.validateForm({ title, status });
+        if (errors.length > 0) return { success: false, error: errors.join('; ') };
+        try {
+          const data = await IncidentAPI.updateIncident(id, { title, severity, assignee, status, remark, version });
+          await Promise.all([refreshList(), refreshStats()]);
+          return { success: true, incident: data.incident };
+        } catch (e) { return { success: false, error: e.message }; }
+      }
+      async function closeIncident(id, remark, version) {
+        try { const data = await IncidentAPI.closeIncident(id, remark, version); await Promise.all([refreshList(), refreshStats()]); return { success: true, incident: data.incident }; } catch (e) { return { success: false, error: e.message }; }
+      }
+      async function getIncidentById(id) { try { const data = await IncidentAPI.getIncident(id); return data.incident || null; } catch (e) { return null; } }
+      async function getIncidents(filter = {}) { const isSame = JSON.stringify(filter) === JSON.stringify(appState.currentFilter); if (!isSame || appState.incidents.length === 0) return await refreshList(filter); return appState.incidents; }
+      function isOverdue(incident) { if (incident.status === '已关闭' || incident.status === '已解决') return false; const hours = SEVERITY_TIMEOUT_HOURS[incident.severity] || 72; const deadline = new Date(new Date(incident.createdAt).getTime() + hours * 3600 * 1000); return new Date() > deadline; }
+      function getStats() { return appState.stats; }
+      async function exportToJSON() { await IncidentAPI.exportData('json'); return ''; }
+      async function exportToCSV() { await IncidentAPI.exportData('csv'); return ''; }
+      function startAutoRefresh(callback, intervalMs) { if (appState.autoRefreshStop) appState.autoRefreshStop(); const stop = IncidentAPI.startAutoRefresh(async (data) => { await refreshList(); await refreshStats(); if (callback) callback(); }, intervalMs); setState({ autoRefreshStop: stop }); return stop; }
+      function stopAutoRefresh() { if (appState.autoRefreshStop) { appState.autoRefreshStop(); setState({ autoRefreshStop: null }); } }
+      function _clearStorage() { IncidentAPI.cacheClear(); }
+      window.IncidentApp = { init, refreshList, refreshStats, createIncident, updateIncident, closeIncident, getIncidentById, getIncidents, isOverdue, getStats, exportToJSON, exportToCSV, startAutoRefresh, stopAutoRefresh, getState: () => ({ ...appState }), _clearStorage, SEVERITY_TIMEOUT_HOURS, VALID_STATUSES };
+    })();
+  </script>
   <script>
     // ========== 全局状态监听 ==========
     let _lastRetry = null;
