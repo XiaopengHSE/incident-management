@@ -1,27 +1,6 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.js"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|ico|jpg|jpeg|gif|svg|html|json|md))",
-      "dest": "/incident-dashboard/$1"
-    },
-    {
-      "src": "/",
-      "dest": "/api/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.js"
-    }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api\\.js|app\\.js|tests\\.html|favicon\\.ico|favicon\\.png).*)", "destination": "/api" }
   ]
 }

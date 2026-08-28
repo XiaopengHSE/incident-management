@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>异常事件登记台</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --surface: #ffffff;
+      --text: #111827;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.04);
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* 顶部栏 */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-title .icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--primary), #60a5fa);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px;
+    }
+    .header-actions {
+      display: flex; gap: 10px;
+    }
+
+    /* 按钮 */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--primary); color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary {
+      background: var(--surface); color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { background: var(--bg); }
+    .btn-danger {
+      background: #fef2f2; color: var(--danger);
+      border-color: #fecaca;
+    }
+    .btn-danger:hover { background: #fee2e2; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+    /* 主内容 */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* 统计卡片 */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .stat-card.total .stat-value { color: var(--text); }
+    .stat-card.open .stat-value { color: var(--info); }
+    .stat-card.closed .stat-value { color: var(--success); }
+    .stat-card.overdue .stat-value { color: var(--danger); }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.total { background: var(--text-secondary); }
+    .dot.open { background: var(--info); }
+    .dot.closed { background: var(--success); }
+    .dot.overdue { background: var(--danger); }
+
+    /* 筛选栏 */
+    .filter-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .filter-bar label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-right: 4px;
+    }
+    .filter-bar select, .filter-bar input {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--text);
+      min-width: 120px;
+    }
+    .filter-bar input[type="text"] { min-width: 180px; }
+    .filter-bar select:focus, .filter-bar input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+
+    /* 列表 */
+    .incident-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .incident-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.15s, transform 0.15s;
+      position: relative;
+    }
+    .incident-card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-1px);
+    }
+    .incident-card.overdue {
+      border-left: 4px solid var(--danger);
+    }
+    .incident-card:not(.overdue) {
+      border-left: 4px solid transparent;
+    }
+    .incident-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      gap: 12px;
+    }
+    .incident-title {
+      font-size: 16px;
+      font-weight: 600;
+      flex: 1;
+    }
+    .incident-badges {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .badge-severity-紧急 { background: #fef2f2; color: #991b1b; }
+    .badge-severity-高 { background: #fff7ed; color: #9a3412; }
+    .badge-severity-中 { background: #fffbeb; color: #92400e; }
+    .badge-severity-低 { background: #f0fdf4; color: #166534; }
+    .badge-status-待处理 { background: #eff6ff; color: #1e40af; }
+    .badge-status-处理中 { background: #fefce8; color: #854d0e; }
+    .badge-status-已解决 { background: #f0fdf4; color: #166534; }
+    .badge-status-已关闭 { background: #f3f4f6; color: #374151; }
+    .badge-overdue {
+      background: #fef2f2; color: #991b1b;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .incident-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+    .incident-meta span {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .incident-remark {
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: var(--bg);
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      word-break: break-all;
+    }
+    .incident-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+    .empty-state .empty-icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+    .empty-state h3 {
+      font-size: 18px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .empty-state p {
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+      animation: modalIn 0.2s ease-out;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-header {
+      padding: 20px 24px 0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header h2 { font-size: 18px; }
+    .modal-close {
+      background: none; border: none; font-size: 22px; cursor: pointer;
+      color: var(--text-secondary); line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 20px 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .form-group label .required { color: var(--danger); margin-left: 2px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .form-error {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 6px;
+      display: none;
+    }
+    .form-error.visible { display: block; }
+    .modal-footer {
+      padding: 0 24px 20px;
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      top: 20px; right: 20px;
+      z-index: 200;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      box-shadow: var(--shadow-lg);
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px;
+      min-width: 260px;
+      animation: toastIn 0.25s ease-out;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .toast.toast-success { border-left: 4px solid var(--success); }
+    .toast.toast-error { border-left: 4px solid var(--danger); }
+    .toast.toast-info { border-left: 4px solid var(--info); }
+
+    /* 历史时间线 */
+    .timeline {
+      position: relative;
+      padding-left: 18px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 4px; top: 4px; bottom: 4px;
+      width: 2px;
+      background: var(--border);
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -16px; top: 5px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--surface);
+    }
+    .timeline-time {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+    .timeline-status {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .timeline-remark {
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* 导出菜单 */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    .dropdown-menu {
+      position: absolute;
+      right: 0; top: calc(100% + 6px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      min-width: 140px;
+      display: none;
+      overflow: hidden;
+      z-index: 60;
+    }
+    .dropdown-menu.active { display: block; }
+    .dropdown-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .dropdown-item:hover { background: var(--bg); }
+
+    /* 全局加载 */
+    .global-loading {
+      position: fixed; top: 0; left: 0; right: 0; height: 3px;
+      background: transparent; z-index: 300; overflow: hidden;
+      display: none;
+    }
+    .global-loading.active { display: block; }
+    .global-loading::after {
+      content: '';
+      display: block;
+      height: 100%;
+      width: 40%;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      animation: loadSlide 1s infinite ease-in-out;
+    }
+    @keyframes loadSlide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(250%); }
+    }
+
+    /* 全局错误条 */
+    .global-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border-bottom: 1px solid #fecaca;
+      padding: 10px 24px;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .global-error.active { display: flex; }
+    .global-error button {
+      background: none; border: none; color: #991b1b; cursor: pointer; font-size: 13px; text-decoration: underline;
+    }
+
+    /* 骨架屏 */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg) 25%, #e5e7eb 50%, var(--bg) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 6px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .form-row { grid-template-columns: 1fr; }
+      .header { flex-wrap: wrap; gap: 10px; }
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .incident-header { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 全局加载条 -->
+  <div class="global-loading" id="globalLoading"></div>
+
+  <!-- 全局错误条 -->
+  <div class="global-error" id="globalError">
+    <span id="globalErrorText"></span>
+    <button onclick="retryLast()">重试</button>
+  </div>
+
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- 顶部栏 -->
+  <header class="header">
+    <div class="header-title">
+      <div class="icon">!</div>
+      <span>异常事件登记台</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="doRefresh()" title="刷新数据">
+        <span id="refreshIcon">🔄</span>
+        <span>刷新</span>
+      </button>
+      <div class="dropdown" id="exportDropdown">
+        <button class="btn btn-secondary" onclick="toggleExportMenu()">
+          <span>导出</span>
+          <span>▼</span>
+        </button>
+        <div class="dropdown-menu" id="exportMenu">
+          <div class="dropdown-item" onclick="exportData('json')">📄 导出 JSON</div>
+          <div class="dropdown-item" onclick="exportData('csv')">📊 导出 CSV</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="openCreateModal()">
+        <span>+</span>
+        <span>新增事件</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主内容 -->
+  <main class="container">
+    <!-- 统计 -->
+    <div class="stats-bar">
+      <div class="stat-card total">
+        <div class="stat-label"><span class="dot total"></span>事件总数</div>
+        <div class="stat-value" id="statTotal">0</div>
+      </div>
+      <div class="stat-card open">
+        <div class="stat-label"><span class="dot open"></span>未关闭</div>
+        <div class="stat-value" id="statOpen">0</div>
+      </div>
+      <div class="stat-card closed">
+        <div class="stat-label"><span class="dot closed"></span>已关闭</div>
+        <div class="stat-value" id="statClosed">0</div>
+      </div>
+      <div class="stat-card overdue">
+        <div class="stat-label"><span class="dot overdue"></span>已超时</div>
+        <div class="stat-value" id="statOverdue">0</div>
+      </div>
+    </div>
+
+    <!-- 筛选 -->
+    <div class="filter-bar">
+      <div>
+        <label>状态</label>
+        <select id="filterStatus" onchange="renderList()">
+          <option value="">全部</option>
+          <option value="待处理">待处理</option>
+          <option value="处理中">处理中</option>
+          <option value="已解决">已解决</option>
+          <option value="已关闭">已关闭</option>
+        </select>
+      </div>
+      <div>
+        <label>严重度</label>
+        <select id="filterSeverity" onchange="renderList()">
+          <option value="">全部</option>
+          <option value="紧急">紧急</option>
+          <option value="高">高</option>
+          <option value="中">中</option>
+          <option value="低">低</option>
+        </select>
+      </div>
+      <div>
+        <label>负责人</label>
+        <input type="text" id="filterAssignee" placeholder="输入负责人..." oninput="renderList()">
+      </div>
+      <div>
+        <label>关键词</label>
+        <input type="text" id="filterKeyword" placeholder="搜索标题、备注..." oninput="renderList()">
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="clearFilters()">重置筛选</button>
+    </div>
+
+    <!-- 列表 -->
+    <div id="incidentList" class="incident-list"></div>
+  </main>
+
+  <!-- 新增/编辑 Modal -->
+  <div class="modal-overlay" id="incidentModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">新增事件</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="incidentForm" onsubmit="return false;">
+          <input type="hidden" id="incidentId">
+          <div class="form-group">
+            <label>事件标题 <span class="required">*</span></label>
+            <input type="text" id="inputTitle" placeholder="请输入事件标题">
+            <div class="form-error" id="errorTitle">标题不能为空</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>严重度</label>
+              <select id="inputSeverity">
+                <option value="紧急">紧急</option>
+                <option value="高">高</option>
+                <option value="中" selected>中</option>
+                <option value="低">低</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>处理状态</label>
+              <select id="inputStatus">
+                <option value="待处理" selected>待处理</option>
+                <option value="处理中">处理中</option>
+                <option value="已解决">已解决</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>负责人</label>
+            <input type="text" id="inputAssignee" placeholder="请输入负责人姓名">
+          </div>
+          <div class="form-group">
+            <label>备注</label>
+            <textarea id="inputRemark" placeholder="请输入备注信息..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveIncident()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 详情/历史 Modal -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>事件详情与状态历史</h2>
+        <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="detailBody">
+        <!-- 动态填充 -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDetailModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // ========== 全局状态监听 ==========
+    let _lastRetry = null;
+
+    document.addEventListener('api:loading', (e) => {
+      document.getElementById('globalLoading').classList.toggle('active', e.detail);
+      document.getElementById('refreshIcon').style.animation = e.detail ? 'spin 1s linear infinite' : '';
+    });
+
+    document.addEventListener('api:error', (e) => {
+      const err = e.detail;
+      if (err) {
+        document.getElementById('globalErrorText').textContent = '请求失败: ' + (err.message || '未知错误');
+        document.getElementById('globalError').classList.add('active');
+      } else {
+        document.getElementById('globalError').classList.remove('active');
+      }
+    });
+
+    document.addEventListener('app:state', (e) => {
+      const s = e.detail;
+      if (!s.loading && !s.error) {
+        document.getElementById('globalError').classList.remove('active');
+      }
+    });
+
+    // ========== UI 逻辑 ==========
+
+    async function renderList() {
+      const listEl = document.getElementById('incidentList');
+      const filter = {
+        status: document.getElementById('filterStatus').value,
+        severity: document.getElementById('filterSeverity').value,
+        assignee: document.getElementById('filterAssignee').value.trim(),
+        keyword: document.getElementById('filterKeyword').value.trim(),
+      };
+
+      _lastRetry = () => renderList();
+
+      try {
+        const incidents = await IncidentApp.getIncidents(filter);
+        const stats = IncidentApp.getStats();
+
+        document.getElementById('statTotal').textContent = stats.total;
+        document.getElementById('statOpen').textContent = stats.open;
+        document.getElementById('statClosed').textContent = stats.closed;
+        document.getElementById('statOverdue').textContent = stats.overdue;
+
+        if (incidents.length === 0) {
+          listEl.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">📭</div>
+              <h3>暂无事件</h3>
+              <p>当前没有符合条件的事件记录，点击右上角"新增事件"开始登记。</p>
+              <button class="btn btn-primary" onclick="openCreateModal()">新增事件</button>
+            </div>
+          `;
+          return;
+        }
+
+        listEl.innerHTML = incidents.map(inc => {
+          const overdue = IncidentApp.isOverdue(inc);
+          const dateStr = formatDate(inc.createdAt);
+          return `
+            <div class="incident-card ${overdue ? 'overdue' : ''}">
+              <div class="incident-header">
+                <div class="incident-title">${escapeHtml(inc.title)}</div>
+                <div class="incident-badges">
+                  <span class="badge badge-severity-${inc.severity}">${inc.severity}</span>
+                  <span class="badge badge-status-${inc.status}">${inc.status}</span>
+                  ${overdue ? '<span class="badge badge-overdue">已超时</span>' : ''}
+                </div>
+              </div>
+              <div class="incident-meta">
+                <span>👤 ${inc.assignee || '未分配'}</span>
+                <span>🕐 ${dateStr}</span>
+                <span>📝 历史 ${inc.history.length} 条</span>
+              </div>
+              ${inc.remark ? `<div class="incident-remark">${escapeHtml(inc.remark)}</div>` : ''}
+              <div class="incident-actions">
+                <button class="btn btn-secondary btn-sm" onclick="viewHistory('${inc.id}')">查看历史</button>
+                ${inc.status !== '已关闭' ? `<button class="btn btn-primary btn-sm" onclick="openEditModal('${inc.id}')">编辑</button>` : ''}
+                ${inc.status !== '已关闭' ? `<button class="btn btn-danger btn-sm" onclick="closeIncidentItem('${inc.id}')">关闭</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <h3>加载失败</h3>
+            <p>${escapeHtml(e.message || '无法连接到服务器')}</p>
+            <button class="btn btn-primary" onclick="retryLast()">重新加载</button>
+          </div>
+        `;
+      }
+    }
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ========== Modal 操作 ==========
+
+    function openCreateModal() {
+      document.getElementById('incidentId').value = '';
+      document.getElementById('inputTitle').value = '';
+      document.getElementById('inputSeverity').value = '中';
+      document.getElementById('inputStatus').value = '待处理';
+      document.getElementById('inputAssignee').value = '';
+      document.getElementById('inputRemark').value = '';
+      document.getElementById('errorTitle').classList.remove('visible');
+      document.getElementById('modalTitle').textContent = '新增事件';
+      document.getElementById('incidentModal').classList.add('active');
+    }
+
+    async function openEditModal(id) {
+      const inc = await IncidentApp.getIncidentById(id);
+      if (!inc) return showToast('事件不存在', 'error');
+      document.getElementById('incidentId').value = inc.id;
+      document.getElementById('inputTitle').value = inc.title;
+      document.getElementById('inputSeverity').value = inc.severity;
+      document.getElementById('inputStatus').value = inc.status;
+      document.getElementById('inputAssignee').value = inc.assignee || '';
+      document.getElementById('inputRemark').value = inc.remark || '';
+      document.getElementById('errorTitle').classList.remove('visible');
+      document.getElementById('modalTitle').textContent = '编辑事件';
+      document.getElementById('incidentModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('incidentModal').classList.remove('active');
+    }
+
+    async function saveIncident() {
+      const id = document.getElementById('incidentId').value;
+      const title = document.getElementById('inputTitle').value.trim();
+      const severity = document.getElementById('inputSeverity').value;
+      const status = document.getElementById('inputStatus').value;
+      const assignee = document.getElementById('inputAssignee').value.trim();
+      const remark = document.getElementById('inputRemark').value.trim();
+
+      if (!title) {
+        document.getElementById('errorTitle').classList.add('visible');
+        return;
+      }
+      document.getElementById('errorTitle').classList.remove('visible');
+
+      let res;
+      if (id) {
+        const inc = await IncidentApp.getIncidentById(id);
+        res = await IncidentApp.updateIncident(id, { title, severity, assignee, status, remark, version: inc?.version });
+      } else {
+        res = await IncidentApp.createIncident({ title, severity, assignee, status, remark });
+      }
+
+      if (res.success) {
+        showToast(id ? '事件已更新' : '事件已创建', 'success');
+        closeModal();
+        await renderList();
+      } else {
+        showToast(res.error || '操作失败', 'error');
+      }
+    }
+
+    async function closeIncidentItem(id) {
+      if (!confirm('确定要关闭此事件吗？关闭后可在列表中查看但无法编辑。')) return;
+      const inc = await IncidentApp.getIncidentById(id);
+      const res = await IncidentApp.closeIncident(id, '用户手动关闭', inc?.version);
+      if (res.success) {
+        showToast('事件已关闭', 'success');
+        await renderList();
+      } else {
+        showToast(res.error || '关闭失败', 'error');
+      }
+    }
+
+    async function viewHistory(id) {
+      const inc = await IncidentApp.getIncidentById(id);
+      if (!inc) return;
+      const historyHtml = inc.history.length === 0
+        ? '<p style="color:var(--text-secondary);font-size:13px;">暂无历史记录</p>'
+        : `<div class="timeline">` + inc.history.map(h => `
+          <div class="timeline-item">
+            <div class="timeline-time">${formatDate(h.time)}</div>
+            <div class="timeline-status">状态: ${h.status}</div>
+            ${h.remark ? `<div class="timeline-remark">${escapeHtml(h.remark)}</div>` : ''}
+          </div>
+        `).join('') + `</div>`;
+
+      document.getElementById('detailBody').innerHTML = `
+        <div style="margin-bottom:16px;">
+          <h3 style="font-size:16px;margin-bottom:8px;">${escapeHtml(inc.title)}</h3>
+          <div style="font-size:13px;color:var(--text-secondary);display:flex;gap:16px;flex-wrap:wrap;">
+            <span>严重度: <strong>${inc.severity}</strong></span>
+            <span>当前状态: <strong>${inc.status}</strong></span>
+            <span>负责人: <strong>${inc.assignee || '未分配'}</strong></span>
+          </div>
+        </div>
+        <h4 style="font-size:14px;margin-bottom:10px;color:var(--text-secondary);">状态变更历史</h4>
+        ${historyHtml}
+      `;
+      document.getElementById('detailModal').classList.add('active');
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detailModal').classList.remove('active');
+    }
+
+    // ========== 筛选 ==========
+
+    function clearFilters() {
+      document.getElementById('filterStatus').value = '';
+      document.getElementById('filterSeverity').value = '';
+      document.getElementById('filterAssignee').value = '';
+      document.getElementById('filterKeyword').value = '';
+      renderList();
+    }
+
+    // ========== 导出 ==========
+
+    function toggleExportMenu() {
+      document.getElementById('exportMenu').classList.toggle('active');
+    }
+
+    async function exportData(format) {
+      document.getElementById('exportMenu').classList.remove('active');
+      try {
+        await IncidentApp.exportToJSON(); // 内部调用 API
+        if (format === 'csv') await IncidentApp.exportToCSV();
+        showToast(`已导出 ${format.toUpperCase()}`, 'success');
+      } catch (e) {
+        showToast('导出失败: ' + (e.message || '未知错误'), 'error');
+      }
+    }
+
+    // ========== 刷新与重试 ==========
+
+    async function doRefresh() {
+      await renderList();
+      showToast('数据已刷新', 'info');
+    }
+
+    async function retryLast() {
+      document.getElementById('globalError').classList.remove('active');
+      if (_lastRetry) await _lastRetry();
+    }
+
+    // ========== Toast ==========
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+      toast.innerHTML = `<span style="font-weight:700;">${icon}</span><span>${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        toast.style.transition = 'all 0.25s ease';
+        setTimeout(() => toast.remove(), 250);
+      }, 3000);
+    }
+
+    // ========== 全局点击关闭下拉 ==========
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#exportDropdown')) {
+        document.getElementById('exportMenu').classList.remove('active');
+      }
+    });
+
+    // ========== 初始化 ==========
+    (async function init() {
+      await IncidentApp.init();
+      await renderList();
+      // 启动自动刷新（每 30 秒）
+      IncidentApp.startAutoRefresh(() => renderList(), 30000);
+    })();
+  </script>
+</body>
+</html>

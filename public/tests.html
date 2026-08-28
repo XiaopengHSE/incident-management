@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>异常事件登记台 - 测试</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --text: #1f2937;
+      --text-secondary: #6b7280;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --primary: #3b82f6;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      line-height: 1.6;
+    }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+    .summary {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--card);
+      border: 1px solid var(--border);
+    }
+    .badge.ok { color: var(--success); border-color: var(--success); }
+    .badge.fail { color: var(--danger); border-color: var(--danger); }
+    .test-group {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+    .test-group h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .test-case {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .test-case:last-child { border-bottom: none; }
+    .test-name { flex: 1; }
+    .status {
+      font-weight: 600;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .status.pass { background: #d1fae5; color: #065f46; }
+    .status.fail { background: #fee2e2; color: #991b1b; }
+    .error-msg {
+      color: var(--danger);
+      font-size: 12px;
+      margin-top: 4px;
+      width: 100%;
+    }
+    .run-btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .run-btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <h1>异常事件登记台 - 自动化测试</h1>
+  <div class="subtitle">先补测试，再改代码。刷新页面重新运行。</div>
+  <button class="run-btn" onclick="runAllTests()">重新运行测试</button>
+  <div class="summary" id="summary"></div>
+  <div id="results"></div>
+
+  <script src="app.js"></script>
+  <script>
+    // ========== 测试框架 ==========
+    const results = [];
+
+    function assert(condition, message) {
+      if (!condition) throw new Error(message || '断言失败');
+    }
+
+    function assertEqual(actual, expected, message) {
+      if (actual !== expected) {
+        throw new Error((message || '断言失败') + ` | 实际: ${actual}, 期望: ${expected}`);
+      }
+    }
+
+    function test(name, fn) {
+      try {
+        fn();
+        results.push({ name, status: 'pass', error: null });
+      } catch (e) {
+        results.push({ name, status: 'fail', error: e.message });
+      }
+    }
+
+    // ========== 测试用例 ==========
+    function runAllTests() {
+      results.length = 0;
+      IncidentApp._clearStorage();
+
+      // --- 创建事件 ---
+      test('testCreateIncident: 新增事件应成功并返回 ID', () => {
+        const res = IncidentApp.createIncident({
+          title: '测试事件A',
+          severity: '高',
+          assignee: '测试员',
+          status: '待处理',
+          remark: '备注内容'
+        });
+        assert(res.success === true, '创建应成功');
+        assert(res.incident.id && res.incident.id.startsWith('inc_'), '应生成有效 ID');
+        assertEqual(res.incident.title, '测试事件A');
+        assertEqual(res.incident.severity, '高');
+      });
+
+      test('testCreateIncidentValidation: 空标题应拒绝', () => {
+        const res = IncidentApp.createIncident({ title: '', severity: '中', assignee: '', status: '待处理' });
+        assert(res.success === false, '空标题应失败');
+        assert(res.error.includes('标题'), '错误信息应提示标题');
+      });
+
+      test('testCreateIncidentValidation: 无效状态应拒绝', () => {
+        const res = IncidentApp.createIncident({ title: 'X', severity: '中', assignee: '', status: '不存在' });
+        assert(res.success === false, '无效状态应失败');
+      });
+
+      // --- 编辑事件 ---
+      test('testEditIncident: 编辑标题和状态应成功', () => {
+        IncidentApp._clearStorage();
+        const created = IncidentApp.createIncident({ title: '原始标题', severity: '中', assignee: 'A', status: '待处理', remark: '' });
+        const res = IncidentApp.updateIncident(created.incident.id, {
+          title: '修改后标题',
+          severity: '高',
+          assignee: 'B',
+          status: '处理中',
+          remark: '修改备注'
+        });
+        assert(res.success === true, '编辑应成功');
+        assertEqual(res.incident.title, '修改后标题');
+        assertEqual(res.incident.status, '处理中');
+        assert(res.incident.history.length >= 2, '状态变更应记录历史');
+      });
+
+      test('testEditIncident: 编辑不存在的事件应失败', () => {
+        const res = IncidentApp.updateIncident('inc_not_exist', { title: 'X', severity: '中', assignee: '', status: '待处理' });
+        assert(res.success === false, '编辑不存在事件应失败');
+      });
+
+      // --- 关闭事件 ---
+      test('testCloseIncident: 关闭事件应成功', () => {
+        IncidentApp._clearStorage();
+        const created = IncidentApp.createIncident({ title: '待关闭', severity: '低', assignee: 'C', status: '处理中', remark: '' });
+        const res = IncidentApp.closeIncident(created.incident.id, '问题已修复');
+        assert(res.success === true, '关闭应成功');
+        assertEqual(res.incident.status, '已关闭');
+        assert(res.incident.closedAt !== null, '应记录关闭时间');
+      });
+
+      test('testCloseIncident: 重复关闭应失败', () => {
+        IncidentApp._clearStorage();
+        const created = IncidentApp.createIncident({ title: '已关', severity: '低', assignee: 'C', status: '待处理', remark: '' });
+        IncidentApp.closeIncident(created.incident.id, '');
+        const res2 = IncidentApp.closeIncident(created.incident.id, '');
+        assert(res2.success === false, '重复关闭应失败');
+      });
+
+      // --- 筛选查询 ---
+      test('testFilterByStatus: 按状态筛选应准确', () => {
+        IncidentApp._clearStorage();
+        IncidentApp.createIncident({ title: 'A', severity: '中', assignee: 'X', status: '待处理', remark: '' });
+        IncidentApp.createIncident({ title: 'B', severity: '中', assignee: 'X', status: '处理中', remark: '' });
+        const filtered = IncidentApp.getIncidents({ status: '处理中' });
+        assertEqual(filtered.length, 1, '应只有1条处理中');
+        assertEqual(filtered[0].title, 'B');
+      });
+
+      test('testFilterBySeverity: 按严重度筛选应准确', () => {
+        IncidentApp._clearStorage();
+        IncidentApp.createIncident({ title: 'A', severity: '紧急', assignee: 'X', status: '待处理', remark: '' });
+        IncidentApp.createIncident({ title: 'B', severity: '低', assignee: 'X', status: '待处理', remark: '' });
+        const filtered = IncidentApp.getIncidents({ severity: '紧急' });
+        assertEqual(filtered.length, 1);
+        assertEqual(filtered[0].title, 'A');
+      });
+
+      test('testFilterByKeyword: 关键词筛选应支持标题与备注', () => {
+        IncidentApp._clearStorage();
+        IncidentApp.createIncident({ title: '登录异常', severity: '中', assignee: 'X', status: '待处理', remark: '用户无法登录' });
+        IncidentApp.createIncident({ title: '支付失败', severity: '中', assignee: 'X', status: '待处理', remark: '订单问题' });
+        const filtered = IncidentApp.getIncidents({ keyword: '登录' });
+        assertEqual(filtered.length, 1);
+        assertEqual(filtered[0].title, '登录异常');
+      });
+
+      // --- 持久化 ---
+      test('testPersistence: 刷新后数据应仍存在', () => {
+        IncidentApp._clearStorage();
+        IncidentApp.createIncident({ title: '持久化测试', severity: '中', assignee: 'X', status: '待处理', remark: '' });
+        // 模拟刷新：重新通过 loadData 读取
+        const data = IncidentApp.loadData();
+        assert(data.incidents.length >= 1, '刷新后应仍有数据');
+        assert(data.incidents.some(i => i.title === '持久化测试'), '应包含创建的事件');
+      });
+
+      // --- 超时提醒 ---
+      test('testTimeoutReminder: 紧急事件超过4小时应标记超时', () => {
+        const oldIncident = {
+          id: 'inc_test_old',
+          title: '老事件',
+          severity: '紧急',
+          status: '待处理',
+          createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(), // 5小时前
+          history: []
+        };
+        assert(IncidentApp.isOverdue(oldIncident) === true, '5小时前的紧急事件应超时');
+      });
+
+      test('testTimeoutReminder: 已关闭事件不应超时', () => {
+        const closedIncident = {
+          id: 'inc_test_closed',
+          title: '已关闭老事件',
+          severity: '紧急',
+          status: '已关闭',
+          createdAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+          history: []
+        };
+        assert(IncidentApp.isOverdue(closedIncident) === false, '已关闭事件不应超时');
+      });
+
+      // --- 状态历史 ---
+      test('testStatusHistory: 状态变更应记录历史', () => {
+        IncidentApp._clearStorage();
+        const created = IncidentApp.createIncident({ title: '历史测试', severity: '中', assignee: 'X', status: '待处理', remark: '' });
+        IncidentApp.updateIncident(created.incident.id, { title: '历史测试', severity: '中', assignee: 'X', status: '处理中', remark: '开始处理' });
+        IncidentApp.updateIncident(created.incident.id, { title: '历史测试', severity: '中', assignee: 'X', status: '已解决', remark: '修复完成' });
+        const inc = IncidentApp.getIncidentById(created.incident.id);
+        assertEqual(inc.history.length, 3, '应有3条历史记录（创建+2次变更）');
+        assert(inc.history[1].status === '处理中', '第二条历史应为处理中');
+        assert(inc.history[2].status === '已解决', '第三条历史应为已解决');
+      });
+
+      // --- 导出功能 ---
+      test('testExportJSON: JSON导出应包含所有事件', () => {
+        IncidentApp._clearStorage();
+        IncidentApp.createIncident({ title: '导出测试', severity: '中', assignee: 'X', status: '待处理', remark: '' });
+        const json = IncidentApp.exportToJSON();
+        const parsed = JSON.parse(json);
+        assert(Array.isArray(parsed.incidents), '导出JSON应包含incidents数组');
+        assert(parsed.incidents.length >= 1, '应至少有一条事件');
+      });
+
+      test('testExportCSV: CSV导出应包含表头和数据行', () => {
+        IncidentApp._clearStorage();
+        IncidentApp.createIncident({ title: 'CSV测试', severity: '低', assignee: 'Y', status: '待处理', remark: '' });
+        const csv = IncidentApp.exportToCSV();
+        const lines = csv.split('\n');
+        assert(lines.length >= 2, 'CSV应至少包含表头和1行数据');
+        assert(lines[0].includes('标题'), '表头应包含标题字段');
+        assert(lines[1].includes('CSV测试'), '数据行应包含事件标题');
+      });
+
+      // --- 统计 ---
+      test('testStats: 统计数据应准确', () => {
+        IncidentApp._clearStorage();
+        IncidentApp.createIncident({ title: 'S1', severity: '中', assignee: 'X', status: '待处理', remark: '' });
+        IncidentApp.createIncident({ title: 'S2', severity: '中', assignee: 'X', status: '已关闭', remark: '' });
+        const stats = IncidentApp.getStats();
+        assertEqual(stats.total, 2, '总数应为2');
+        assertEqual(stats.open, 1, '未关闭应为1');
+        assertEqual(stats.closed, 1, '已关闭应为1');
+      });
+
+      renderResults();
+    }
+
+    // ========== 渲染结果 ==========
+    function renderResults() {
+      const summaryEl = document.getElementById('summary');
+      const resultsEl = document.getElementById('results');
+
+      const pass = results.filter(r => r.status === 'pass').length;
+      const fail = results.filter(r => r.status === 'fail').length;
+
+      summaryEl.innerHTML = `
+        <div class="badge ok">通过: ${pass}</div>
+        <div class="badge fail">失败: ${fail}</div>
+        <div class="badge">总计: ${results.length}</div>
+      `;
+
+      const groups = {
+        '创建与校验': results.filter(r => r.name.startsWith('testCreate')),
+        '编辑事件': results.filter(r => r.name.startsWith('testEdit')),
+        '关闭事件': results.filter(r => r.name.startsWith('testClose')),
+        '筛选查询': results.filter(r => r.name.startsWith('testFilter')),
+        '持久化': results.filter(r => r.name.startsWith('testPersistence')),
+        '超时提醒': results.filter(r => r.name.startsWith('testTimeout')),
+        '状态历史': results.filter(r => r.name.startsWith('testStatusHistory')),
+        '导出功能': results.filter(r => r.name.startsWith('testExport')),
+        '统计': results.filter(r => r.name.startsWith('testStats')),
+      };
+
+      let html = '';
+      for (const [groupName, items] of Object.entries(groups)) {
+        if (items.length === 0) continue;
+        html += `<div class="test-group"><h3>${groupName}</h3>`;
+        for (const item of items) {
+          html += `
+            <div class="test-case">
+              <span class="test-name">${item.name}</span>
+              <span class="status ${item.status}">${item.status === 'pass' ? '通过' : '失败'}</span>
+            </div>
+            ${item.error ? `<div class="error-msg">${item.error}</div>` : ''}
+          `;
+        }
+        html += '</div>';
+      }
+
+      resultsEl.innerHTML = html;
+    }
+
+    // 页面加载自动运行
+    runAllTests();
+  </script>
+</body>
+</html>
